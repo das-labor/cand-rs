@@ -1,6 +1,6 @@
-const RS232CAN_MAXLENGTH: usize = 20;
+use super::{CanMessageRaw, CanMessage};
 
-use can::can;
+const RS232CAN_MAXLENGTH: usize = 20;
 
 enum Rs232CanCmd {
     Reset = 0x00,

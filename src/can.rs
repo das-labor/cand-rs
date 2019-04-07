@@ -3,6 +3,9 @@ type CanPort = uchar;
 type CanChannel = u16;
 type CanSubchannel = u8;
 
+pub mod uart;
+pub mod encap;
+
 struct CanMessageRaw {
     id: u32,
     dlc: u8,
