@@ -10,6 +10,7 @@ use tokio::codec::Framed;
 use bytes::BytesMut;
 use bytes::BufMut;
 use tokio::io;
+use tokio::io::ErrorKind;
 
 const HEADER_LENGTH: usize = 2;
 const MAX_PAYLOAD_LENGTH: usize = 18;
@@ -38,12 +39,16 @@ impl Decoder for CanTCPCodec {
 
         let payload_length = src[0] as usize;
 
-        if src.len() >= payload_length + HEADER_LENGTH
-        && payload_length <= MAX_PAYLOAD_LENGTH {
+        if src.len() < payload_length + HEADER_LENGTH {
+            // more bytes are needed
+            return Ok(None);
+        }
+
+        if payload_length <= MAX_PAYLOAD_LENGTH {
             // we have enough bytes, split off a packet
             let packet_data = src.split_to(HEADER_LENGTH + payload_length);
 
-            let slice = &packet_data[HEADER_LENGTH..payload_length];
+            let slice = &packet_data[HEADER_LENGTH..HEADER_LENGTH+payload_length];
 
             let packet = CanTCPPacket {
                 cmd: packet_data[1],
@@ -51,10 +56,9 @@ impl Decoder for CanTCPCodec {
             };
 
             Ok(Some(packet))
-        }
-        else {
-            // more bytes are needed
-            Ok(None)
+        } else {
+            // invalid length specified
+            Err(io::Error::new(ErrorKind::InvalidData, "invalid length field"))
         }
     }
 }
@@ -84,8 +88,8 @@ fn main() {
 
     let server = listener.incoming().for_each(|sock| {
         println!("connection accepted");
-        let framed_sock = Framed::new(sock, CanTCPCodec {});
 
+        let framed_sock = Framed::new(sock, CanTCPCodec {});
         framed_sock.for_each(|frame| {
             dbg!(frame);
             Ok(())
