@@ -23,12 +23,12 @@ enum Rs232CanCmd {
 }
 
 struct RS232CanMsg {
-    cmd: uchar,
-    len: uchar,
-    data: [uchar; RS232CAN_MAXLENGTH]
+    cmd: char,
+    len: char,
+    data: [char; RS232CAN_MAXLENGTH]
 }
 
-fn can_message_raw_from_rs232can_msg(cmsg: &mut CanMessageRaw, rmsg: &RS232CanMsg) {
+/*fn can_message_raw_from_rs232can_msg(cmsg: &mut CanMessageRaw, rmsg: &RS232CanMsg) {
     *cmsg = rmsg.data;
 }
 
@@ -55,4 +55,4 @@ fn can_message_raw_from_can_message(can_message_raw *raw_msg, can_message *cmsg)
     (cmsg->addr_src << 8) | (cmsg->addr_dst);
     raw_msg->dlc = cmsg->dlc;
     memcpy(raw_msg->data, cmsg->data, cmsg->dlc);
-}
+}*/

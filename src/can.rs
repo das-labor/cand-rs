@@ -1,5 +1,5 @@
-type CanAddr = uchar;
-type CanPort = uchar;
+type CanAddr = u8;
+type CanPort = u8;
 type CanChannel = u16;
 type CanSubchannel = u8;
 
@@ -13,11 +13,11 @@ struct CanMessageRaw {
 }
 
 struct CanMessage {
-    addr_src: can_addr,
-    addr_dst: can_addr,
-    port_src: can_port,
-    port_dst: can_port,
-    dlc: uchar,
+    addr_src: CanAddr,
+    addr_dst: CanAddr,
+    port_src: CanPort,
+    port_dst: CanPort,
+    dlc: u8,
     data: [u8; 8]
 }
 
@@ -42,7 +42,7 @@ enum CanMode {
 
 // Management
 
-fn can_init() {
+/*fn can_init() {
 
 }
 
@@ -137,4 +137,4 @@ fn can_get_v2_nb() -> CanMessageV2 {
 
 fn can_free_v2(msg: CanMessageV2) {
 
-}
+}*/
