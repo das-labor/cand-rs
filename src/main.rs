@@ -11,6 +11,7 @@ use bytes::BytesMut;
 use bytes::BufMut;
 use tokio::io;
 use tokio::io::ErrorKind;
+use std::process::exit;
 
 const HEADER_LENGTH: usize = 2;
 const MAX_PAYLOAD_LENGTH: usize = 18;
@@ -84,7 +85,10 @@ fn main() {
     let port = 2342;
 
     let addr = "127.0.0.1:2342".parse().unwrap();
-    let listener = TcpListener::bind(&addr).unwrap();
+    let listener = TcpListener::bind(&addr).unwrap_or_else(|err| {
+        println!("{}", err);
+        exit(1);
+    });
 
     let server = listener.incoming().for_each(|sock| {
         println!("connection accepted");
@@ -99,5 +103,6 @@ fn main() {
         println!("accept error = {:?}", err);
     });
 
+    println!("starting event loop...");
     tokio::run(server);
 }
