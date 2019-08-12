@@ -1,5 +1,6 @@
 [workspace]
 
 members = [
+    "lab-can-tcp-proto",
     "cand"
 ]
