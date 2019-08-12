@@ -6,6 +6,8 @@ use tokio::codec::{Decoder, Encoder};
 
 use num_derive::FromPrimitive;
 
+// TODO, this is not really satisfying because value enum members don't work with this.
+//  this also adds unnecessary dependencies
 #[derive(Debug, FromPrimitive)]
 pub enum Rs232CanCmd {
     Reset = 0x00,
