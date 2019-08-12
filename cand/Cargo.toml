@@ -10,6 +10,4 @@ tokio = "0.1"
 tokio-serial = "3.2"
 bytes = "0.4"
 
-num = "0.2"
-num-traits = "0.2"
-num-derive = "0.2"
+lab-can-tcp-proto = { path = "../lab-can-tcp-proto" }
