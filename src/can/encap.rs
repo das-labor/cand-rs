@@ -1,8 +1,13 @@
-use super::{CanMessageRaw, CanMessage};
+use super::{CanMessage, CanMessageRaw};
+
+use num_derive::FromPrimitive;
 
 const RS232CAN_MAXLENGTH: usize = 20;
 
-enum Rs232CanCmd {
+// TODO consider not using num-derive, but a boring from_u8 match method
+//  (num-derive requires tons of other stuff we don't need)
+#[derive(Debug, FromPrimitive)]
+pub enum Rs232CanCmd {
     Reset = 0x00,
     SetFilter = 0x10,
     Pkt = 0x11,
@@ -19,7 +24,8 @@ enum Rs232CanCmd {
     ReadCtrlReg = 0x1C,
     WriteCtrlReg = 0x1D,
     GetResetCause = 0x1E,
-    NotifyTXOvf = 0x1F
+    NotifyTXOvf = 0x1F,
+    //Unknown(u8) // doesnt work with FromPrimitive and/or values
 }
 
 struct RS232CanMsg {
