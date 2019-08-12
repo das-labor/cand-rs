@@ -102,11 +102,8 @@ fn main() {
 
     let port = 2342;
 
-    let addr = "127.0.0.1:2342".parse().unwrap();
-    let mut listener = TcpListener::bind(&addr).unwrap_or_else(|err| {
-        println!("{}", err);
-        exit(1);
-    });
+    let addr = "127.0.0.1:2342".parse()?;
+    let mut listener = TcpListener::bind(&addr)?;
 
     let server = listener.incoming().for_each(|sock| {
         println!("connection accepted");
