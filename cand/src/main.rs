@@ -97,7 +97,7 @@ impl Encoder for CanTCPCodec {
     }
 }
 
-fn main() {
+fn main() -> Result<(), io::Error> {
     let args: Vec<String> = env::args().collect();
 
     let port = 2342;
