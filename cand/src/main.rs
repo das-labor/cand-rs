@@ -7,24 +7,19 @@ extern crate tokio;
 use tokio::net::TcpListener;
 use tokio::prelude::*;
 
-use tokio::codec::{Decoder, Encoder};
 use tokio::codec::Framed;
-use bytes::BytesMut;
-use bytes::BufMut;
-use tokio::io;
-use tokio::io::ErrorKind;
 use std::process::exit;
 
 use lab_can_tcp_proto::{Rs232CanCmd, CanTCPCodec};
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    //let args: Vec<String> = env::args().collect();
 
-    let port = 2342;
+    //let port = 2342;
 
     let addr = "127.0.0.1:2342".parse().unwrap();
-    let mut listener = TcpListener::bind(&addr).unwrap_or_else(|err| {
-        println!("{}", err);
+    let listener = TcpListener::bind(&addr).unwrap_or_else(|err| {
+        eprintln!("{}", err);
         exit(1);
     });
 
