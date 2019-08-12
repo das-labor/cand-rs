@@ -68,6 +68,10 @@ impl Encoder for CanTCPCodec {
     type Item = CanTCPPacket;
     type Error = io::Error;
 
+    /// CanTCP packet format:
+    /// +--------+---------+--------------+
+    /// | u8 len | u8 type | [u8] payload |
+    /// +--------+---------+--------------+
     fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
         dst.reserve(HEADER_LENGTH + item.data.len());
 
