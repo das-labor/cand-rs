@@ -6,8 +6,8 @@ edition = "2018"
 
 [dependencies]
 crc16 = "0.4.0"
-tokio = "0.1"
-tokio-serial = "3.2"
+tokio = "0.2.0-alpha.6"
+#tokio-serial = "3.2"
 bytes = "0.4"
 
 lab-can-tcp-proto = { path = "../lab-can-tcp-proto" }

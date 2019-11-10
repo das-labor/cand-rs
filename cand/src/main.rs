@@ -4,78 +4,154 @@ use std::env;
 
 extern crate tokio;
 
+use std::net::SocketAddr;
+
 use tokio::net::TcpListener;
 use tokio::prelude::*;
-
+use tokio::future;
 use tokio::codec::Framed;
-use std::process::exit;
 
 use lab_can_tcp_proto::{Rs232CanCmd, CanTCPCodec};
 
-fn main() {
-    //let args: Vec<String> = env::args().collect();
+async fn tcp_listener(addr: &mut SocketAddr) {
+    let listener = TcpListener::bind(addr).await.unwrap();
 
-    //let port = 2342;
+    listener.incoming().for_each(|sock| {
+        println!("incoming connection");
+        let sock = sock.unwrap();
+        // println!("accept error = {:?}", err); on error?
 
-    let addr = "127.0.0.1:2342".parse().unwrap();
-    let listener = TcpListener::bind(&addr).unwrap_or_else(|err| {
-        eprintln!("{}", err);
-        exit(1);
-    });
+        tokio::spawn({
+            println!("connection accepted");
 
-    let server = listener.incoming().for_each(|sock| {
-        println!("connection accepted");
+            let framed_sock = Framed::new(sock, CanTCPCodec {});
+            framed_sock.for_each(move |frame| {
+                let frame = frame.unwrap();
+                // println!("accept error = {:?}", err); on error?
 
-        let framed_sock = Framed::new(sock, CanTCPCodec {});
-        framed_sock.for_each(move |frame| {
-            println!("Activity on client");
+                println!("Activity on client");
 
-            println!("Processing message from network...");
-            dbg!(&frame);
+                println!("Processing message from network...");
+                dbg!(&frame);
 
-            // customscripts(msg);
+                // customscripts(msg);
 
-            match frame.cmd {
-                Rs232CanCmd::SetFilter | Rs232CanCmd::SetMode => {
-                    //* XXX *//
-                },
-                Rs232CanCmd::Pkt => {
-                    // transmit to serial
-                    // send to all connected network clients
-                },
-                Rs232CanCmd::PingGateway |
-                Rs232CanCmd::Version |
-                Rs232CanCmd::IDString |
-                Rs232CanCmd::Packetcounters |
-                Rs232CanCmd::Errorcounters |
-                Rs232CanCmd::Powerdraw |
-                Rs232CanCmd::ReadCtrlReg |
-                Rs232CanCmd::GetResetCause => {
-                    // msg len = 0
-                    // send to serial
-                },
-                Rs232CanCmd::WriteCtrlReg => {
-                    if frame.data_len() == 1 {
+                match frame.cmd {
+                    Rs232CanCmd::SetFilter | Rs232CanCmd::SetMode => {
+                        //* XXX *//
+                    },
+                    Rs232CanCmd::Pkt => {
+                        // transmit to serial
+                        // send to all connected network clients
+                    },
+                    Rs232CanCmd::PingGateway |
+                    Rs232CanCmd::Version |
+                    Rs232CanCmd::IDString |
+                    Rs232CanCmd::Packetcounters |
+                    Rs232CanCmd::Errorcounters |
+                    Rs232CanCmd::Powerdraw |
+                    Rs232CanCmd::ReadCtrlReg |
+                    Rs232CanCmd::GetResetCause => {
+                        // msg len = 0
                         // send to serial
-                    }
-                },
-                Rs232CanCmd::Error |
-                Rs232CanCmd::NotifyReset |
-                Rs232CanCmd::Resync |
-                Rs232CanCmd::NotifyTXOvf => {
-                    //don't react on these commands
-                },
-                Rs232CanCmd::Reset => {}, // Reset isn't handled in cand-c ??? only default case
-            }
+                    },
+                    Rs232CanCmd::WriteCtrlReg => {
+                        if frame.data_len() == 1 {
+                            // send to serial
+                        }
+                    },
+                    Rs232CanCmd::Error |
+                    Rs232CanCmd::NotifyReset |
+                    Rs232CanCmd::Resync |
+                    Rs232CanCmd::NotifyTXOvf => {
+                        //don't react on these commands
+                    },
+                    _ => {}, // Reset isn't handled in cand-c ??? only default case
+                }
 
-            println!("...processing done.");
-            Ok(())
+                println!("...processing done.");
+                future::ready(())
+            });
+            future::ready(())
         })
-    })
-    .map_err(|err| {
+    }).await;
+    future::ready(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _args: Vec<String> = env::args().collect();
+
+    let _port: u32 = 2342;
+
+    let addr: SocketAddr = "127.0.0.1:2342".parse().unwrap();
+    let listener = TcpListener::bind(&addr).await?;
+
+    listener.incoming().for_each(|sock| {
+        println!("incoming connection");
+        let sock = sock.unwrap();
+        // println!("accept error = {:?}", err); on error?
+
+        tokio::spawn({
+            println!("connection accepted");
+
+            let framed_sock = Framed::new(sock, CanTCPCodec {});
+            framed_sock.for_each(move |frame| {
+                let frame = frame.unwrap();
+                // println!("accept error = {:?}", err); on error?
+
+                println!("Activity on client");
+
+                println!("Processing message from network...");
+                dbg!(&frame);
+
+                // customscripts(msg);
+
+                match frame.cmd {
+                    Rs232CanCmd::SetFilter | Rs232CanCmd::SetMode => {
+                        //* XXX *//
+                    },
+                    Rs232CanCmd::Pkt => {
+                        // transmit to serial
+                        // send to all connected network clients
+                    },
+                    Rs232CanCmd::PingGateway |
+                    Rs232CanCmd::Version |
+                    Rs232CanCmd::IDString |
+                    Rs232CanCmd::Packetcounters |
+                    Rs232CanCmd::Errorcounters |
+                    Rs232CanCmd::Powerdraw |
+                    Rs232CanCmd::ReadCtrlReg |
+                    Rs232CanCmd::GetResetCause => {
+                        // msg len = 0
+                        // send to serial
+                    },
+                    Rs232CanCmd::WriteCtrlReg => {
+                        if frame.data_len() == 1 {
+                            // send to serial
+                        }
+                    },
+                    Rs232CanCmd::Error |
+                    Rs232CanCmd::NotifyReset |
+                    Rs232CanCmd::Resync |
+                    Rs232CanCmd::NotifyTXOvf => {
+                        //don't react on these commands
+                    },
+                    _ => {}, // Reset isn't handled in cand-c ??? only default case
+                }
+
+                println!("...processing done.");
+                future::ready(()) // tokio 0.2
+            })
+        });
+
+        future::ready(())
+    }).await;
+    /*.map_err(|err| {
         println!("accept error = {:?}", err);
-    });
+    });*/
 
     println!("starting event loop...");
-    tokio::run(server);
+
+    Ok(())
 }
