@@ -2,7 +2,7 @@ use std::io;
 use std::io::ErrorKind;
 use bytes::{BufMut, BytesMut};
 
-use tokio_codec::{Decoder, Encoder};
+use tokio_util::codec::{Decoder, Encoder};
 
 use num_derive::FromPrimitive;
 
@@ -91,7 +91,7 @@ impl Encoder for CanTCPCodec {
 
         dst.put_u8(item.data.len() as u8);
         dst.put_u8(item.cmd as u8);
-        dst.put(item.data);
+        dst.put_slice(&item.data);
 
         Ok(())
     }

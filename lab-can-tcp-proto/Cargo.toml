@@ -7,10 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bytes = "0.4"
+bytes = "0.5"
+tokio-util = {version = "0.2", features = ["codec"]}
+
 num = "0.2"
 num-traits = "0.2"
 num-derive = "0.2"
-
-tokio = "0.2.0-alpha.6"
-tokio-codec = "0.2.0-alpha.6"
