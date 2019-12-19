@@ -1,9 +1,10 @@
-#[warn(rust_2018_idioms)]
+#![warn(rust_2018_idioms)]
+
 use std::env;
 
 use std::net::SocketAddr;
 
-#[allow(warnings)]
+#[allow(unused_imports)]
 use tokio::prelude::*;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::Decoder;
