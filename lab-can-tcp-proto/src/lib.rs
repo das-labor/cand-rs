@@ -78,15 +78,14 @@ impl Decoder for CanTCPCodec {
     }
 }
 
-impl Encoder for CanTCPCodec {
-    type Item = CanTCPPacket;
+impl Encoder<CanTCPPacket> for CanTCPCodec {
     type Error = io::Error;
 
     /// CanTCP packet format:
     /// +--------+---------+--------------+
     /// | u8 len | u8 type | [u8] payload |
     /// +--------+---------+--------------+
-    fn encode(&mut self, item: Self::Item, dst: &mut BytesMut) -> Result<(), Self::Error> {
+    fn encode(&mut self, item: CanTCPPacket, dst: &mut BytesMut) -> Result<(), Self::Error> {
         dst.reserve(HEADER_LENGTH + item.data.len());
 
         dst.put_u8(item.data.len() as u8);
