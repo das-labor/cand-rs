@@ -9,7 +9,7 @@ crc16 = "0.4"
 tokio = {version = "0.2", features = ["net", "macros"]}
 tokio-util = {version = "0.2", features = ["codec"]}
 futures = "0.3"
-tokio-serial = "4.3"
+tokio-serial = "~4.3"
 bytes = "0.5"
 
 lab-can-tcp-proto = { path = "../lab-can-tcp-proto" }
