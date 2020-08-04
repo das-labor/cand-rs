@@ -4,10 +4,12 @@ use bytes::{BufMut, BytesMut};
 
 use tokio_util::codec::{Decoder, Encoder};
 use std::convert::{TryFrom, TryInto};
-
-pub struct CmdError;
+use crate::Rs232CanCmd::Pkt;
 
 #[derive(Debug)]
+pub struct CmdError;
+
+#[derive(Debug, PartialEq, Clone)]
 #[repr(u8)]
 pub enum Rs232CanCmd {
     Reset = 0x00,
@@ -60,8 +62,42 @@ impl TryFrom<u8> for Rs232CanCmd {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct Rs232CanPacket {
+    pub cmd: Rs232CanCmd,
+    pub data: Vec<u8>
+}
+
 const HEADER_LENGTH: usize = 2;
 const MAX_PAYLOAD_LENGTH: usize = 18;
+
+#[derive(Debug)]
+pub struct CanTCPPacket {
+    pub cmd: Rs232CanCmd,
+    pub data: Vec<u8>
+}
+
+impl CanTCPPacket {
+    pub fn data_len(self) -> usize {
+        self.data.len()
+    }
+}
+
+// only valid for cmd == Pkt
+impl TryInto<Rs232CanPacket> for CanTCPPacket {
+    type Error = CmdError;
+
+    fn try_into(self) -> Result<Rs232CanPacket, Self::Error> {
+        if self.cmd != Pkt {
+            Err(CmdError)
+        } else {
+            Ok(Rs232CanPacket {
+                cmd: Pkt,
+                data: self.data
+            })
+        }
+    }
+}
 
 pub struct CanTCPCodec;
 
@@ -122,19 +158,6 @@ impl Encoder<CanTCPPacket> for CanTCPCodec {
         dst.put_slice(&item.data);
 
         Ok(())
-    }
-}
-
-
-#[derive(Debug)]
-pub struct CanTCPPacket {
-    pub cmd: Rs232CanCmd,
-    pub data: Vec<u8>
-}
-
-impl CanTCPPacket {
-    pub fn data_len(self) -> usize {
-        self.data.len()
     }
 }
 
