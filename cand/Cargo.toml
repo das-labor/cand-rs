@@ -1,7 +1,7 @@
 [package]
 name = "cand"
 version = "0.1.0"
-authors = ["fridtjof <2780577+fridtjof@users.noreply.github.com>"]
+authors = ["fridtjof <fridtjof@das-labor.org>"]
 edition = "2018"
 
 [dependencies]
