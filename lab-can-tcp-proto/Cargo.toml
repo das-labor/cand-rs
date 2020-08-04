@@ -9,7 +9,3 @@ edition = "2018"
 [dependencies]
 bytes = "0.5"
 tokio-util = {version = "0.3", features = ["codec"]}
-
-num = "0.2"
-num-traits = "0.2"
-num-derive = "0.2"

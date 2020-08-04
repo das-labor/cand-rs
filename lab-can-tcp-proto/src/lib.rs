@@ -3,12 +3,12 @@ use std::io::ErrorKind;
 use bytes::{BufMut, BytesMut};
 
 use tokio_util::codec::{Decoder, Encoder};
+use std::convert::{TryFrom, TryInto};
 
-use num_derive::FromPrimitive;
+pub struct CmdError;
 
-// TODO, this is not really satisfying because value enum members don't work with this.
-//  this also adds unnecessary dependencies
-#[derive(Debug, FromPrimitive)]
+#[derive(Debug)]
+#[repr(u8)]
 pub enum Rs232CanCmd {
     Reset = 0x00,
     SetFilter = 0x10,
@@ -26,10 +26,39 @@ pub enum Rs232CanCmd {
     ReadCtrlReg = 0x1C,
     WriteCtrlReg = 0x1D,
     GetResetCause = 0x1E,
-    NotifyTXOvf = 0x1F,
-    //Unknown(u8) // doesnt work with FromPrimitive and/or values
+    NotifyTXOvf = 0x1F
 }
 
+impl TryFrom<u8> for Rs232CanCmd {
+    type Error = CmdError;
+
+    fn try_from(value: u8) -> Result<Self, <Self as TryFrom<u8>>::Error> {
+        let cmd = match value {
+            0x00 => Self::Reset,
+            0x10 => Self::SetFilter,
+            0x11 => Self::Pkt,
+            0x12 => Self::SetMode,
+            0x13 => Self::Error,
+            0x14 => Self::NotifyReset,
+            0x15 => Self::PingGateway,
+            0x16 => Self::Resync,
+            0x17 => Self::Version,
+            0x18 => Self::IDString,
+            0x19 => Self::Packetcounters,
+            0x1A => Self::Errorcounters,
+            0x1B => Self::Powerdraw,
+            0x1C => Self::ReadCtrlReg,
+            0x1D => Self::WriteCtrlReg,
+            0x1E => Self::GetResetCause,
+            0x1F => Self::NotifyTXOvf,
+            _ => {
+                return Err(CmdError)
+            }
+        };
+
+        Ok(cmd)
+    }
+}
 
 const HEADER_LENGTH: usize = 2;
 const MAX_PAYLOAD_LENGTH: usize = 18;
@@ -59,7 +88,7 @@ impl Decoder for CanTCPCodec {
 
             let slice = &packet_data[HEADER_LENGTH..HEADER_LENGTH+payload_length];
 
-            let cmd = if let Some(cmd) = num::FromPrimitive::from_u8(packet_data[1]) {
+            let cmd = if let Ok(cmd) = packet_data[1].try_into() {
                 cmd
             } else {
                 return Err(io::Error::new(ErrorKind::InvalidData, "invalid command"))
