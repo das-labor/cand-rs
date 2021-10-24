@@ -1,0 +1,26 @@
+# Connecting to a local CAN device
+[backend]
+# Use the linux socketcan framework
+kind = "socketcan"
+# Interface to use. Ensure its up and set to the correct bitrate beforehand
+interface = "can0"
+
+# We can also connect to a remote cand
+#kind = "net"
+#connect = "weblab:2342"
+# If we really want to limit connection to for example only sctp (and not tcp):
+#allowed-transports = ["sctp"]
+
+[[listen]]
+kind = "tcp"
+bind = "[::]:2342"
+
+[[listen]]
+kind = "sctp"
+bind = "[::]:2342"
+
+[[hook]]
+src-addr = 0x60
+src-port = 0x03
+cooldown = 1000
+run = ["./test-hook.sh"]

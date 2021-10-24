@@ -1,15 +1,18 @@
 [package]
 name = "cand"
 version = "0.1.0"
-authors = ["fridtjof <fridtjof@das-labor.org>"]
 edition = "2018"
 
-[dependencies]
-crc16 = "0.4"
-tokio = {version = "0.2", features = ["net", "macros", "sync"]}
-tokio-util = {version = "0.3", features = ["codec"]}
-futures = "0.3"
-tokio-serial = "~4.3"
-bytes = "0.5"
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-lab-can-tcp-proto = { path = "../lab-can-tcp-proto" }
+[dependencies]
+labctl = { path = "../../labctl", features = ["async"] }
+slotmap = "1.0.6"
+tokio = { version = "1.12.0", features = ["macros", "rt", "rt-multi-thread", "net", "io-util"] }
+futures = "0.3.17"
+tokio-socketcan = "0.3.0"
+anyhow = "1.0.44"
+log = "0.4.11"
+env_logger = "0.8.2"
+semver = "1.0.4"
+failure = "0.1.8"
