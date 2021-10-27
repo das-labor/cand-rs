@@ -1,5 +1,6 @@
-use futures::Future;
+use futures::{Future, Sink, SinkExt};
 use std::fmt;
+use std::fmt::Debug;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::task::{JoinError, JoinHandle};

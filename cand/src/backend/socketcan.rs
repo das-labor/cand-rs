@@ -6,9 +6,8 @@ use labctl::cand::Message;
 use semver::Version;
 use tokio::task;
 use tokio_socketcan::{CANFrame, CANSocket};
-use crate::util;
 
-pub fn connect(interface: &str) -> anyhow::Result<(impl Stream<Item=cand::Message>, impl Sink<cand::Message>, task::JoinHandle<()>)> {
+pub fn connect(interface: &str) -> anyhow::Result<(impl Stream<Item=cand::Message> + Send + Unpin, mpsc::UnboundedSender<cand::Message>, task::JoinHandle<()>)> {
     let read = CANSocket::open(interface)?;
     let write = CANSocket::open(interface)?;
 
@@ -38,11 +37,15 @@ async fn read_can_frames(mut read: CANSocket, mut sender: mpsc::UnboundedSender<
         let (src, dest) = can::can_id_to_tuple(frame.id())
             .map_err(Fail::compat)?;
 
-        sender.send(cand::Message::Frame(CanPacket::new(
+        let packet = CanPacket::new(
             src,
             dest,
             Vec::from(frame.data())
-        ))).await?;
+        );
+
+        log::debug!("BUS ==> {:?}", packet);
+
+        sender.send(cand::Message::Frame(packet)).await?;
     }
     Ok(())
 }
@@ -55,12 +58,16 @@ async fn write_can_frames(
     while let Some(msg) = receiver.next().await {
         match msg {
             Message::Frame(frame) => {
-                write.write_frame(CANFrame::new(
+                log::debug!("BUS <== {:?}", frame);
+                let frame = CANFrame::new_extended(
                     can::can_id_from_tuple(frame.src, frame.dest),
                     &frame.payload,
                     false,
-                    false
-                )?)?;
+                    false,
+                    true
+                )?;
+                log::trace!("Raw Frame (extended: {:?}): {:?}", frame.is_extended(), frame);
+                write.write_frame(frame)?.await?;
             }
             Message::Reset { .. } => {
                 // GW -> Cand

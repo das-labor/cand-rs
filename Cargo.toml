@@ -4,3 +4,6 @@ members = [
     "lab-can-tcp-proto",
     "cand"
 ]
+
+[patch.crates-io]
+socketcan = { git = "https://github.com/Kilobyte22/socketcan-rs.git", branch = "1.7.0" }

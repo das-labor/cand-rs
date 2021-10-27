@@ -4,22 +4,25 @@ use futures::{Sink, SinkExt, Stream, StreamExt};
 use futures::channel::mpsc;
 use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use labctl::cand;
-use labctl::cand::Message;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::{io, task};
 use tokio::io::{ReadHalf, WriteHalf};
 use crate::reactor::ReactorHandle;
 
-pub async fn listen(addr: SocketAddr, handle: ReactorHandle) -> anyhow::Result<()> {
+pub async fn listen(addr: SocketAddr, mut handle: ReactorHandle) -> anyhow::Result<()> {
     let listener = TcpListener::bind(addr).await?;
 
     loop {
         let (conn, addr) = listener.accept().await?;
         log::debug!("New connection from {}", addr);
+
+        let (stream, sink, task) = handle_client(conn);
+
+        handle.register_client(stream, sink, task).await;
     }
 }
 
-async fn handle_client(client: TcpStream) -> (impl Stream<Item=cand::Message>, impl Sink<cand::Message>, task::JoinHandle<()>) {
+fn handle_client(client: TcpStream) -> (impl Stream<Item=cand::Message>, mpsc::UnboundedSender<cand::Message>, task::JoinHandle<()>) {
     let (read, write) = io::split(client);
 
     let (sender, stream) = mpsc::unbounded();
@@ -33,8 +36,7 @@ async fn handle_client(client: TcpStream) -> (impl Stream<Item=cand::Message>, i
         match res {
             Ok(_) => {},
             Err(e) => {
-                log::error!("Client Error: {}", e);
-                log::debug!("Details: {:?}", e);
+                log::debug!("Client Error: {:?}", e);
             }
         }
     });
