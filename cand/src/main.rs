@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     let (mut stream, sink, task) = match config.backend {
         Backend::SocketCAN { interface } => {
             log::info!("Connecting to CAN interface {}", interface);
-            backend::socketcan::connect("vcan0")?
+            backend::socketcan::connect(&interface)?
         }
         Backend::Network { .. } => {
             todo!("Not yet implemented")
@@ -68,6 +68,7 @@ async fn main() -> anyhow::Result<()> {
         } else {
             log::info!("Loaded {} hooks", count);
         }
+        hook::hook_task(handle.clone(), config.hooks).await;
     }
 
     reactor.run().await;

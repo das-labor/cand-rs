@@ -3,13 +3,17 @@ mod control;
 use std::process::Stdio;
 use std::sync::Arc;
 use futures::lock::Mutex;
+use futures::{SinkExt, StreamExt};
 use labctl::can::CanPacket;
+use labctl::cand;
 use tokio::process::Command;
 use tokio::{time, task};
 use tokio::time::{Duration, Instant};
 use serde::Deserialize;
+use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
 use crate::reactor::ReactorHandle;
+use crate::util;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Hook {
@@ -142,6 +146,29 @@ fn match_packet_against_config(p: &CanPacket, h: &Hook) -> bool {
     true
 }
 
-pub fn hook_task(handle: ReactorHandle, hooks: Vec<Hook>) {
+pub async fn hook_task(mut handle: ReactorHandle, hooks: Vec<Hook>) {
+    let (sender, mut receiver) = mpsc::unbounded_channel();
+    let mut hook_system = Hooks::new(hooks, sender);
+    let (sink, mut input) = futures::channel::mpsc::unbounded();
+    let (mut output, stream) = futures::channel::mpsc::unbounded();
 
+    let converter = util::kill_task_on_drop(task::spawn(async move {
+        while let Some(item) = receiver.recv().await {
+            output.send(cand::Message::Frame(item)).await;
+        }
+    }));
+
+    let task = task::spawn(async move {
+        while let Some(item) = input.next().await {
+            match item {
+                cand::Message::Frame(frame) => {
+                    hook_system.process_hooks(&frame).await;
+                },
+                _ => {}
+            }
+        }
+        drop(converter);
+    });
+
+    handle.register_client(stream, sink, task).await;
 }

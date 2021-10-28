@@ -5,8 +5,10 @@ use crate::hook;
 #[derive(Deserialize)]
 pub struct Config {
     pub backend: Backend,
+    #[serde(default)]
     pub listen: Vec<Listen>,
     #[serde(rename = "hook")]
+    #[serde(default)]
     pub hooks: Vec<hook::Hook>
 }
 
