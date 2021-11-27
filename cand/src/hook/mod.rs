@@ -1,5 +1,6 @@
 mod control;
 
+use std::borrow::Cow;
 use std::process::Stdio;
 use std::sync::Arc;
 use futures::lock::Mutex;
@@ -26,6 +27,7 @@ pub struct Hook {
     #[serde(rename = "dst-port")]
     pub dst_port: Option<u8>,
     pub payload: Option<Vec<u8>>,
+    pub mask: Option<Vec<u8>>,
     pub run: Vec<String>,
     pub cooldown: Option<u64>,
     pub delay: Option<u64>
@@ -138,8 +140,18 @@ fn match_packet_against_config(p: &CanPacket, h: &Hook) -> bool {
     }
 
     if let Some(payload) = &h.payload {
-        if payload != &p.payload {
+        let mask = h.mask.as_ref().map(|mask| Cow::Borrowed(mask))
+            .unwrap_or_else(|| Cow::Owned(vec![0xffu8; 6]));
+        if payload.len() != p.payload.len() {
             return false;
+        }
+        if p.payload.len() < mask.len() {
+            return false;
+        }
+        for (i, byte) in p.payload.iter().enumerate() {
+            if byte & mask[i] != payload[i] & mask[i] {
+                return false;
+            }
         }
     }
 

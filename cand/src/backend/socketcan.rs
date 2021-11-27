@@ -94,7 +94,11 @@ async fn write_can_frames(
             Message::FirmwareIdResponse(_) => {
                 // GW -> Cand
             }
-            Message::Unknown { .. } => {}
+            Message::BusPowerRequest => {},
+            Message::BusPowerResponse {..} => {
+                // GW -> Cand
+            }
+            Message::Unknown { .. } => {},
         }
     }
     Ok(())
