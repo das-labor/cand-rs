@@ -1,5 +1,5 @@
 use failure::Fail;
-use futures::{Sink, Stream, channel::mpsc, StreamExt, SinkExt};
+use futures::{Stream, channel::mpsc, StreamExt, SinkExt};
 use labctl::can::{self, CanPacket};
 use labctl::cand;
 use labctl::cand::Message;
@@ -51,7 +51,7 @@ async fn read_can_frames(mut read: CANSocket, mut sender: mpsc::UnboundedSender<
 }
 
 async fn write_can_frames(
-    mut write: CANSocket,
+    write: CANSocket,
     mut receiver: mpsc::UnboundedReceiver<cand::Message>,
     mut sender: mpsc::UnboundedSender<cand::Message>
 ) -> anyhow::Result<()> {

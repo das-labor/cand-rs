@@ -1,6 +1,5 @@
-use futures::{Future, Sink, SinkExt};
+use futures::{Future};
 use std::fmt;
-use std::fmt::Debug;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::task::{JoinError, JoinHandle};
@@ -25,6 +24,7 @@ pub struct KillJoinHandle<T> {
 }
 
 impl<T> KillJoinHandle<T> {
+    #[allow(unused)]
     pub fn bg(mut self) -> JoinHandle<T> {
         self.handle.take().unwrap()
     }

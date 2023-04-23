@@ -166,7 +166,7 @@ pub async fn hook_task(mut handle: ReactorHandle, hooks: Vec<Hook>) {
 
     let converter = util::kill_task_on_drop(task::spawn(async move {
         while let Some(item) = receiver.recv().await {
-            output.send(cand::Message::Frame(item)).await;
+            output.send(cand::Message::Frame(item)).await.unwrap();
         }
     }));
 

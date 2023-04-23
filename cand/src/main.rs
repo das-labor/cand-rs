@@ -10,9 +10,7 @@ mod hook;
 
 use std::fs;
 use anyhow::Context;
-use failure::Fail;
 use tokio::task;
-use futures::StreamExt;
 use crate::config::Backend;
 
 fn args() -> clap::App<'static, 'static> {
@@ -38,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
     )
         .context("Failed to parse config file")?;
 
-    let (mut stream, sink, task) = match config.backend {
+    let (stream, sink, task) = match config.backend {
         Backend::SocketCAN { interface } => {
             log::info!("Connecting to CAN interface {}", interface);
             backend::socketcan::connect(&interface)?

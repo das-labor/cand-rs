@@ -1,5 +1,4 @@
-use std::process::Output;
-use futures::{Stream, Sink, SinkExt, StreamExt};
+use futures::{Stream, SinkExt, StreamExt};
 use futures::channel::mpsc;
 use labctl::cand;
 use slotmap::DenseSlotMap;
@@ -45,7 +44,7 @@ impl ReactorHandle {
             read: Box::new(read),
             write,
             task,
-        }).await;
+        }).await.unwrap();
     }
 
     pub async fn register_uplink<In: 'static>(&mut self, read: In, write: mpsc::UnboundedSender<cand::Message>, task: JoinHandle<()>)
@@ -56,7 +55,7 @@ impl ReactorHandle {
             read: Box::new(read),
             write,
             task,
-        }).await;
+        }).await.unwrap();
     }
 }
 
@@ -84,7 +83,7 @@ impl Reactor {
             receive: rx,
             sender: tx.clone()
         };
-        let mut rh = ReactorHandle {
+        let rh = ReactorHandle {
             sender: tx
         };
         (r, rh)
@@ -126,7 +125,7 @@ impl Reactor {
                         // The sending task actually exists
                         for (_, task) in &mut self.tasks {
                             if task.uplink != from_uplink {
-                                task.sink.send(payload.clone()).await;
+                                task.sink.send(payload.clone()).await.unwrap();
                             }
                         }
                     } // If the task does not exist (anymore), we just ignore the message
@@ -159,15 +158,15 @@ async fn read_task(mut read: Box<dyn Stream<Item=cand::Message> + Send + Unpin>,
         sender.send(ReactorMessage::Message {
             source: key,
             payload: message
-        }).await;
+        }).await.unwrap();
     }
 
 }
 
 async fn supervise(task: JoinHandle<()>, mut sender: mpsc::Sender<ReactorMessage>, key: Task) {
     let task = util::kill_task_on_drop(task);
-    task.await;
+    util::catch_error(task).await;
     sender.send(ReactorMessage::TaskDied {
         task: key
-    }).await;
+    }).await.unwrap();
 }

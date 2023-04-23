@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 use failure::ResultExt;
-use futures::{Sink, SinkExt, Stream, StreamExt};
+use futures::{SinkExt, Stream, StreamExt};
 use futures::channel::mpsc;
 use futures::channel::mpsc::{UnboundedReceiver, UnboundedSender};
 use labctl::cand;
