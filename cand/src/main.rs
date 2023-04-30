@@ -1,75 +1,53 @@
-#[macro_use]
-extern crate clap;
+mod devices;
+mod net;
 
-mod backend;
-mod reactor;
-mod listen;
-mod util;
-mod config;
-mod hook;
+use std::{fs::File, sync::Arc};
 
-use std::fs;
-use anyhow::Context;
-use tokio::task;
-use crate::config::Backend;
-
-fn args() -> clap::App<'static, 'static> {
-    clap::app_from_crate!()
-        .arg(clap::Arg::with_name("config")
-            .default_value("/etc/cand.toml")
-            .short("-c")
-            .long("--config")
-            .takes_value(true)
-            .help("The path of the config file")
-        )
-}
+use lcp_proto::{ChannelDescriptor, ChannelFlags, DeviceDescriptor, RoomDescriptor};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    env_logger::Builder::new()
+        .filter_level(log::LevelFilter::Info)
+        .parse_default_env()
+        .init();
 
-    let args = args().get_matches();
+    let devices: devices::Toplevel = serde_yaml::from_reader(&mut File::open("devices.yaml")?)?;
 
-    let config: config::Config = toml::from_slice(
-        &fs::read(args.value_of("config").unwrap())
-            .context("Failed to open config file")?
-    )
-        .context("Failed to parse config file")?;
+    println!("Devices: {:?}", devices);
 
-    let (stream, sink, task) = match config.backend {
-        Backend::SocketCAN { interface } => {
-            log::info!("Connecting to CAN interface {}", interface);
-            backend::socketcan::connect(&interface)?
-        }
-        Backend::Network { .. } => {
-            todo!("Not yet implemented")
-        }
-    };
+    let core = Arc::new(net::server::Core {
+        rooms: devices
+            .rooms
+            .into_iter()
+            .map(|room| RoomDescriptor {
+                id: room.id.as_bytes().to_owned(),
+                display_name: room.display_name,
+            })
+            .collect(),
+        devices: devices
+            .devices
+            .into_iter()
+            .map(|device| DeviceDescriptor {
+                id: device.id.as_bytes().to_owned(),
+                display_name: device.display_name,
+                wiki_url: device.wiki_url,
+                channels: device
+                    .channels
+                    .into_iter()
+                    .map(|channel| ChannelDescriptor {
+                        flags: ChannelFlags(0x00),
+                        room: channel.room.into_bytes(),
+                        display_name: channel.display_name,
+                        value_type: channel.ty,
+                        channel_kind: channel.kind,
+                    })
+                    .collect(),
+            })
+            .collect(),
+    });
 
-    let (mut reactor, mut handle) = reactor::Reactor::new();
-
-    handle.register_uplink(stream, sink, task).await;
-
-    for listen in config.listen {
-        match listen {
-            config::Listen::TCP { bind } => {
-                log::info!("Listening on TCP {}", bind);
-                task::spawn(listen::tcp::listen(bind, handle.clone()));
-            }
-        }
-    }
-
-    {
-        let count = config.hooks.len();
-        if count == 1 {
-            log::info!("Loaded 1 hook");
-        } else {
-            log::info!("Loaded {} hooks", count);
-        }
-        hook::hook_task(handle.clone(), config.hooks).await;
-    }
-
-    reactor.run().await;
+    net::server::listen("[::]:2342".parse()?, core).await?;
 
     Ok(())
 }

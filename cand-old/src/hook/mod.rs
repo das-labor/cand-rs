@@ -1,20 +1,20 @@
 mod control;
 
-use std::borrow::Cow;
-use std::process::Stdio;
-use std::sync::Arc;
+use crate::reactor::ReactorHandle;
+use crate::util;
 use futures::lock::Mutex;
 use futures::{SinkExt, StreamExt};
 use labctl::can::CanPacket;
 use labctl::cand;
-use tokio::process::Command;
-use tokio::{time, task};
-use tokio::time::{Duration, Instant};
 use serde::Deserialize;
+use std::borrow::Cow;
+use std::process::Stdio;
+use std::sync::Arc;
+use tokio::process::Command;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::UnboundedSender;
-use crate::reactor::ReactorHandle;
-use crate::util;
+use tokio::time::{Duration, Instant};
+use tokio::{task, time};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Hook {
@@ -30,13 +30,13 @@ pub struct Hook {
     pub mask: Option<Vec<u8>>,
     pub run: Vec<String>,
     pub cooldown: Option<u64>,
-    pub delay: Option<u64>
+    pub delay: Option<u64>,
 }
 
 pub struct Hooks {
     hooks: Vec<Hook>,
     cooldowns: Arc<Mutex<Vec<Option<Instant>>>>,
-    sender: UnboundedSender<CanPacket>
+    sender: UnboundedSender<CanPacket>,
 }
 
 impl Hooks {
@@ -46,14 +46,13 @@ impl Hooks {
         Hooks {
             hooks,
             cooldowns,
-            sender
+            sender,
         }
     }
 
     pub async fn process_hooks(&mut self, packet: &CanPacket) {
         for (hook_num, hook) in self.hooks.iter_mut().enumerate() {
             if match_packet_against_config(&packet, &hook) {
-
                 let hook = hook.clone();
                 let p = packet.clone();
                 let cooldowns = self.cooldowns.clone();
@@ -69,7 +68,9 @@ impl Hooks {
                         let cooldown_lock = cooldowns.lock().await;
                         if let Some(last_activation) = cooldown_lock[hook_num] {
                             if let Some(cooldown) = hook.cooldown {
-                                if last_activation + Duration::from_millis(cooldown) > Instant::now() {
+                                if last_activation + Duration::from_millis(cooldown)
+                                    > Instant::now()
+                                {
                                     log::debug!("Hook {:?} cooldown still pending", hook);
                                     return;
                                 }
@@ -79,8 +80,7 @@ impl Hooks {
 
                     log::info!("Hook {:?} run", hook);
                     let mut cmd = Command::new(hook.run.get(0).unwrap());
-                    cmd
-                        .env("CAN_SRC_ADDR", format!("{:x}", p.src.addr()))
+                    cmd.env("CAN_SRC_ADDR", format!("{:x}", p.src.addr()))
                         .env("CAN_DST_ADDR", format!("{:x}", p.dest.addr()))
                         .env("CAN_SRC_PORT", format!("{:x}", p.src.port()))
                         .env("CAN_DST_PORT", format!("{:x}", p.dest.port()))
@@ -89,7 +89,7 @@ impl Hooks {
                             p.payload
                                 .iter()
                                 .map(|x| format!("{:x}", x))
-                                .collect::<String>()
+                                .collect::<String>(),
                         );
 
                     for arg in hook.run.iter().skip(1) {
@@ -105,7 +105,10 @@ impl Hooks {
                             return;
                         }
                     };
-                    task::spawn(control::cand_control_fd_processor(res.stdout.unwrap(), sender));
+                    task::spawn(control::cand_control_fd_processor(
+                        res.stdout.unwrap(),
+                        sender,
+                    ));
 
                     cooldowns.lock().await[hook_num] = Some(Instant::now())
                 });
@@ -140,7 +143,10 @@ fn match_packet_against_config(p: &CanPacket, h: &Hook) -> bool {
     }
 
     if let Some(payload) = &h.payload {
-        let mask = h.mask.as_ref().map(|mask| Cow::Borrowed(mask))
+        let mask = h
+            .mask
+            .as_ref()
+            .map(|mask| Cow::Borrowed(mask))
             .unwrap_or_else(|| Cow::Owned(vec![0xffu8; 6]));
         if payload.len() != p.payload.len() {
             return false;
@@ -175,7 +181,7 @@ pub async fn hook_task(mut handle: ReactorHandle, hooks: Vec<Hook>) {
             match item {
                 cand::Message::Frame(frame) => {
                     hook_system.process_hooks(&frame).await;
-                },
+                }
                 _ => {}
             }
         }

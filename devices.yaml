@@ -1,0 +1,19 @@
+# This is an example file for specifying the devices attached to the CAN bus
+rooms:
+  - id: kueche
+    display_name: Küche
+devices:
+  - id: powercommander
+    display_name: Power Commander
+    wiki_url: https://wiki.das-labor.org/w/Powercommander
+    channels:
+      - id: kueche
+        room: kueche
+        display_name: Deckenlicht
+        type: u8
+        flags: [read, write, subscribe]
+        kind: actor:lamp
+        driver: lap:dimmable_lamp
+        driver_options:
+          lap_addr: 0x02
+          pwm_id: 5

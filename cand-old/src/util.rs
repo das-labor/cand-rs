@@ -1,4 +1,4 @@
-use futures::{Future};
+use futures::Future;
 use std::fmt;
 use std::pin::Pin;
 use std::task::{Context, Poll};
@@ -6,12 +6,12 @@ use tokio::task::{JoinError, JoinHandle};
 
 pub async fn catch_error<Fut, E>(future: Fut)
 where
-    Fut: Future<Output=Result<(), E>>,
-    E: fmt::Display + fmt::Debug
+    Fut: Future<Output = Result<(), E>>,
+    E: fmt::Display + fmt::Debug,
 {
     let res = future.await;
     match res {
-        Ok(()) => {},
+        Ok(()) => {}
         Err(e) => {
             log::error!("{}", e);
             log::debug!("Details: {:?}", e)
@@ -20,7 +20,7 @@ where
 }
 
 pub struct KillJoinHandle<T> {
-    handle: Option<JoinHandle<T>>
+    handle: Option<JoinHandle<T>>,
 }
 
 impl<T> KillJoinHandle<T> {
@@ -51,5 +51,7 @@ impl<T> Future for KillJoinHandle<T> {
 }
 
 pub fn kill_task_on_drop<T>(handle: JoinHandle<T>) -> KillJoinHandle<T> {
-    KillJoinHandle { handle: Some(handle) }
+    KillJoinHandle {
+        handle: Some(handle),
+    }
 }

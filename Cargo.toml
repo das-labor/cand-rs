@@ -2,7 +2,11 @@
 
 members = [
     "lab-can-tcp-proto",
-    "cand"
+    "cand",
+    "cand-old",
+    "lcp-proto",
+    "lcp-client",
+    "lcp",
 ]
 
 [patch.crates-io]

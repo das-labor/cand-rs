@@ -1,10 +1,10 @@
-use futures::{Stream, SinkExt, StreamExt};
+use crate::util;
+use crate::util::KillJoinHandle;
 use futures::channel::mpsc;
+use futures::{SinkExt, Stream, StreamExt};
 use labctl::cand;
 use slotmap::DenseSlotMap;
 use tokio::task::{self, JoinHandle};
-use crate::util;
-use crate::util::KillJoinHandle;
 
 slotmap::new_key_type! {
     struct Task;
@@ -12,50 +12,64 @@ slotmap::new_key_type! {
 
 enum ReactorMessage {
     RegisterClient {
-        read: Box<dyn Stream<Item=cand::Message> + Send + Unpin>,
+        read: Box<dyn Stream<Item = cand::Message> + Send + Unpin>,
         write: mpsc::UnboundedSender<cand::Message>,
-        task: JoinHandle<()>
+        task: JoinHandle<()>,
     },
     RegisterUplinkTemp {
-        read: Box<dyn Stream<Item=cand::Message> + Send + Unpin>,
+        read: Box<dyn Stream<Item = cand::Message> + Send + Unpin>,
         write: mpsc::UnboundedSender<cand::Message>,
-        task: JoinHandle<()>
+        task: JoinHandle<()>,
     },
     TaskDied {
-        task: Task
+        task: Task,
     },
     Message {
         source: Task,
-        payload: cand::Message
-    }
+        payload: cand::Message,
+    },
 }
 
 #[derive(Clone)]
 pub struct ReactorHandle {
-    sender: mpsc::Sender<ReactorMessage>
+    sender: mpsc::Sender<ReactorMessage>,
 }
 
 impl ReactorHandle {
-    pub async fn register_client<In: 'static>(&mut self, read: In, write: mpsc::UnboundedSender<cand::Message>, task: JoinHandle<()>)
-    where
-        In: Stream<Item=cand::Message> + Send + Unpin,
+    pub async fn register_client<In: 'static>(
+        &mut self,
+        read: In,
+        write: mpsc::UnboundedSender<cand::Message>,
+        task: JoinHandle<()>,
+    ) where
+        In: Stream<Item = cand::Message> + Send + Unpin,
     {
-        self.sender.send(ReactorMessage::RegisterClient {
-            read: Box::new(read),
-            write,
-            task,
-        }).await.unwrap();
+        self.sender
+            .send(ReactorMessage::RegisterClient {
+                read: Box::new(read),
+                write,
+                task,
+            })
+            .await
+            .unwrap();
     }
 
-    pub async fn register_uplink<In: 'static>(&mut self, read: In, write: mpsc::UnboundedSender<cand::Message>, task: JoinHandle<()>)
-        where
-            In: Stream<Item=cand::Message> + Send + Unpin,
+    pub async fn register_uplink<In: 'static>(
+        &mut self,
+        read: In,
+        write: mpsc::UnboundedSender<cand::Message>,
+        task: JoinHandle<()>,
+    ) where
+        In: Stream<Item = cand::Message> + Send + Unpin,
     {
-        self.sender.send(ReactorMessage::RegisterUplinkTemp {
-            read: Box::new(read),
-            write,
-            task,
-        }).await.unwrap();
+        self.sender
+            .send(ReactorMessage::RegisterUplinkTemp {
+                read: Box::new(read),
+                write,
+                task,
+            })
+            .await
+            .unwrap();
     }
 }
 
@@ -65,13 +79,13 @@ struct TaskData {
     sink: mpsc::UnboundedSender<cand::Message>,
     /// This is set to None, when the client is to be dropped.
     supervisor: Option<KillJoinHandle<()>>,
-    reader: Option<KillJoinHandle<()>>
+    reader: Option<KillJoinHandle<()>>,
 }
 
 pub struct Reactor {
     tasks: DenseSlotMap<Task, TaskData>,
     sender: mpsc::Sender<ReactorMessage>,
-    receive: mpsc::Receiver<ReactorMessage>
+    receive: mpsc::Receiver<ReactorMessage>,
 }
 
 impl Reactor {
@@ -81,11 +95,9 @@ impl Reactor {
         let r = Reactor {
             tasks: DenseSlotMap::with_key(),
             receive: rx,
-            sender: tx.clone()
+            sender: tx.clone(),
         };
-        let rh = ReactorHandle {
-            sender: tx
-        };
+        let rh = ReactorHandle { sender: tx };
         (r, rh)
     }
 
@@ -97,7 +109,7 @@ impl Reactor {
                         uplink: false,
                         sink: write,
                         supervisor: None,
-                        reader: None
+                        reader: None,
                     };
 
                     let key = self.tasks.insert(data);
@@ -135,7 +147,7 @@ impl Reactor {
                         uplink: true,
                         sink: write,
                         supervisor: None,
-                        reader: None
+                        reader: None,
                     };
 
                     let key = self.tasks.insert(data);
@@ -153,20 +165,27 @@ impl Reactor {
     }
 }
 
-async fn read_task(mut read: Box<dyn Stream<Item=cand::Message> + Send + Unpin>, mut sender: mpsc::Sender<ReactorMessage>, key: Task) {
+async fn read_task(
+    mut read: Box<dyn Stream<Item = cand::Message> + Send + Unpin>,
+    mut sender: mpsc::Sender<ReactorMessage>,
+    key: Task,
+) {
     while let Some(message) = read.next().await {
-        sender.send(ReactorMessage::Message {
-            source: key,
-            payload: message
-        }).await.unwrap();
+        sender
+            .send(ReactorMessage::Message {
+                source: key,
+                payload: message,
+            })
+            .await
+            .unwrap();
     }
-
 }
 
 async fn supervise(task: JoinHandle<()>, mut sender: mpsc::Sender<ReactorMessage>, key: Task) {
     let task = util::kill_task_on_drop(task);
     util::catch_error(task).await;
-    sender.send(ReactorMessage::TaskDied {
-        task: key
-    }).await.unwrap();
+    sender
+        .send(ReactorMessage::TaskDied { task: key })
+        .await
+        .unwrap();
 }

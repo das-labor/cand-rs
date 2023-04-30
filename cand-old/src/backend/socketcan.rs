@@ -1,5 +1,5 @@
 use failure::Fail;
-use futures::{Stream, channel::mpsc, StreamExt, SinkExt};
+use futures::{channel::mpsc, SinkExt, Stream, StreamExt};
 use labctl::can::{self, CanPacket};
 use labctl::cand;
 use labctl::cand::Message;
@@ -7,7 +7,13 @@ use semver::Version;
 use tokio::task;
 use tokio_socketcan::{CANFrame, CANSocket};
 
-pub fn connect(interface: &str) -> anyhow::Result<(impl Stream<Item=cand::Message> + Send + Unpin, mpsc::UnboundedSender<cand::Message>, task::JoinHandle<()>)> {
+pub fn connect(
+    interface: &str,
+) -> anyhow::Result<(
+    impl Stream<Item = cand::Message> + Send + Unpin,
+    mpsc::UnboundedSender<cand::Message>,
+    task::JoinHandle<()>,
+)> {
     let read = CANSocket::open(interface)?;
     let write = CANSocket::open(interface)?;
 
@@ -19,7 +25,7 @@ pub fn connect(interface: &str) -> anyhow::Result<(impl Stream<Item=cand::Messag
 
     let task = task::spawn(async {
         match futures::future::try_join(tx, rx).await {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => {
                 log::error!("Listen connection to can interface failed: {}", e);
                 log::debug!("Details: {:?}", e);
@@ -30,18 +36,16 @@ pub fn connect(interface: &str) -> anyhow::Result<(impl Stream<Item=cand::Messag
     Ok((stream, sink, task))
 }
 
-async fn read_can_frames(mut read: CANSocket, mut sender: mpsc::UnboundedSender<cand::Message>) -> anyhow::Result<()> {
+async fn read_can_frames(
+    mut read: CANSocket,
+    mut sender: mpsc::UnboundedSender<cand::Message>,
+) -> anyhow::Result<()> {
     while let Some(frame) = read.next().await {
         let frame = frame?;
 
-        let (src, dest) = can::can_id_to_tuple(frame.id())
-            .map_err(Fail::compat)?;
+        let (src, dest) = can::can_id_to_tuple(frame.id()).map_err(Fail::compat)?;
 
-        let packet = CanPacket::new(
-            src,
-            dest,
-            Vec::from(frame.data())
-        );
+        let packet = CanPacket::new(src, dest, Vec::from(frame.data()));
 
         log::debug!("BUS ==> {:?}", packet);
 
@@ -53,7 +57,7 @@ async fn read_can_frames(mut read: CANSocket, mut sender: mpsc::UnboundedSender<
 async fn write_can_frames(
     write: CANSocket,
     mut receiver: mpsc::UnboundedReceiver<cand::Message>,
-    mut sender: mpsc::UnboundedSender<cand::Message>
+    mut sender: mpsc::UnboundedSender<cand::Message>,
 ) -> anyhow::Result<()> {
     while let Some(msg) = receiver.next().await {
         match msg {
@@ -64,9 +68,13 @@ async fn write_can_frames(
                     &frame.payload,
                     false,
                     false,
-                    true
+                    true,
                 )?;
-                log::trace!("Raw Frame (extended: {:?}): {:?}", frame.is_extended(), frame);
+                log::trace!(
+                    "Raw Frame (extended: {:?}): {:?}",
+                    frame.is_extended(),
+                    frame
+                );
                 write.write_frame(frame)?.await?;
             }
             Message::Reset { .. } => {
@@ -80,25 +88,31 @@ async fn write_can_frames(
             }
             Message::VersionRequest => {
                 let version: Version = env!("CARGO_PKG_VERSION").parse().unwrap();
-                sender.send(Message::VersionReply {
-                    major: version.major as u8,
-                    minor: version.minor as u8
-                }).await?;
+                sender
+                    .send(Message::VersionReply {
+                        major: version.major as u8,
+                        minor: version.minor as u8,
+                    })
+                    .await?;
             }
             Message::VersionReply { .. } => {
                 // GW -> Cand
             }
             Message::FirmwareIdRequest => {
-                sender.send(Message::FirmwareIdResponse(env!("CARGO_PKG_NAME").to_owned())).await?;
+                sender
+                    .send(Message::FirmwareIdResponse(
+                        env!("CARGO_PKG_NAME").to_owned(),
+                    ))
+                    .await?;
             }
             Message::FirmwareIdResponse(_) => {
                 // GW -> Cand
             }
-            Message::BusPowerRequest => {},
-            Message::BusPowerResponse {..} => {
+            Message::BusPowerRequest => {}
+            Message::BusPowerResponse { .. } => {
                 // GW -> Cand
             }
-            Message::Unknown { .. } => {},
+            Message::Unknown { .. } => {}
         }
     }
     Ok(())

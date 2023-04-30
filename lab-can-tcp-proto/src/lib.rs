@@ -1,10 +1,10 @@
+use bytes::{BufMut, BytesMut};
 use std::io;
 use std::io::ErrorKind;
-use bytes::{BufMut, BytesMut};
 
-use tokio_util::codec::{Decoder, Encoder};
-use std::convert::{TryFrom, TryInto};
 use crate::Rs232CanCmd::Pkt;
+use std::convert::{TryFrom, TryInto};
+use tokio_util::codec::{Decoder, Encoder};
 
 #[derive(Debug)]
 pub struct CmdError;
@@ -28,7 +28,7 @@ pub enum Rs232CanCmd {
     ReadCtrlReg = 0x1C,
     WriteCtrlReg = 0x1D,
     GetResetCause = 0x1E,
-    NotifyTXOvf = 0x1F
+    NotifyTXOvf = 0x1F,
 }
 
 impl TryFrom<u8> for Rs232CanCmd {
@@ -53,9 +53,7 @@ impl TryFrom<u8> for Rs232CanCmd {
             0x1D => Self::WriteCtrlReg,
             0x1E => Self::GetResetCause,
             0x1F => Self::NotifyTXOvf,
-            _ => {
-                return Err(CmdError)
-            }
+            _ => return Err(CmdError),
         };
 
         Ok(cmd)
@@ -65,7 +63,7 @@ impl TryFrom<u8> for Rs232CanCmd {
 #[derive(Debug, Clone)]
 pub struct Rs232CanPacket {
     pub cmd: Rs232CanCmd,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 const HEADER_LENGTH: usize = 2;
@@ -74,7 +72,7 @@ const MAX_PAYLOAD_LENGTH: usize = 18;
 #[derive(Debug)]
 pub struct CanTCPPacket {
     pub cmd: Rs232CanCmd,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 impl CanTCPPacket {
@@ -93,7 +91,7 @@ impl TryInto<Rs232CanPacket> for CanTCPPacket {
         } else {
             Ok(Rs232CanPacket {
                 cmd: Pkt,
-                data: self.data
+                data: self.data,
             })
         }
     }
@@ -122,23 +120,26 @@ impl Decoder for CanTCPCodec {
             // we have enough bytes, split off a packet
             let packet_data = src.split_to(HEADER_LENGTH + payload_length);
 
-            let slice = &packet_data[HEADER_LENGTH..HEADER_LENGTH+payload_length];
+            let slice = &packet_data[HEADER_LENGTH..HEADER_LENGTH + payload_length];
 
             let cmd = if let Ok(cmd) = packet_data[1].try_into() {
                 cmd
             } else {
-                return Err(io::Error::new(ErrorKind::InvalidData, "invalid command"))
+                return Err(io::Error::new(ErrorKind::InvalidData, "invalid command"));
             };
 
             let packet = CanTCPPacket {
                 cmd,
-                data: slice.to_vec()
+                data: slice.to_vec(),
             };
 
             Ok(Some(packet))
         } else {
             // invalid length specified
-            Err(io::Error::new(ErrorKind::InvalidData, "invalid length field"))
+            Err(io::Error::new(
+                ErrorKind::InvalidData,
+                "invalid length field",
+            ))
         }
     }
 }
@@ -160,4 +161,3 @@ impl Encoder<CanTCPPacket> for CanTCPCodec {
         Ok(())
     }
 }
-

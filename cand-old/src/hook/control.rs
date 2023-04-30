@@ -1,9 +1,8 @@
-
+use failure::Error;
+use hex::FromHex;
 use labctl::can::{CanAddr, CanPacket};
 use tokio::io::{AsyncBufReadExt, AsyncRead, BufReader};
-use failure::Error;
 use tokio::sync::mpsc::UnboundedSender;
-use hex::FromHex;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -13,24 +12,30 @@ fn control_args() -> clap::App<'static, 'static> {
         .subcommand(
             clap::SubCommand::with_name("send")
                 .help_short("send a can packet")
-                .arg(clap::Arg::with_name("source")
-                    .short("s")
-                    .takes_value(true)
-                    .long("source")
-                    .default_value("00:00")
+                .arg(
+                    clap::Arg::with_name("source")
+                        .short("s")
+                        .takes_value(true)
+                        .long("source")
+                        .default_value("00:00"),
                 )
-                .arg(clap::Arg::with_name("DESTINATION")
-                    .required(true)
-                    .takes_value(true)
+                .arg(
+                    clap::Arg::with_name("DESTINATION")
+                        .required(true)
+                        .takes_value(true),
                 )
-                .arg(clap::Arg::with_name("PAYLOAD")
-                    .required(true)
-                    .takes_value(true)
-                )
+                .arg(
+                    clap::Arg::with_name("PAYLOAD")
+                        .required(true)
+                        .takes_value(true),
+                ),
         )
 }
 
-pub async fn cand_control_fd_processor<R: AsyncRead + Unpin + Send>(read: R, mut sender: UnboundedSender<CanPacket>) {
+pub async fn cand_control_fd_processor<R: AsyncRead + Unpin + Send>(
+    read: R,
+    mut sender: UnboundedSender<CanPacket>,
+) {
     let br = BufReader::new(read);
     let mut lines = br.lines();
     loop {
@@ -47,7 +52,10 @@ pub async fn cand_control_fd_processor<R: AsyncRead + Unpin + Send>(read: R, mut
     }
 }
 
-pub async fn process_control_message(line: &str, sender: &mut UnboundedSender<CanPacket>) -> Result<()> {
+pub async fn process_control_message(
+    line: &str,
+    sender: &mut UnboundedSender<CanPacket>,
+) -> Result<()> {
     let args = control_args();
     let split = line.split(" ");
     let matches = args.get_matches_from_safe(split)?;
@@ -60,9 +68,7 @@ pub async fn process_control_message(line: &str, sender: &mut UnboundedSender<Ca
             let packet = CanPacket::new(src, dest, payload);
             sender.send(packet).unwrap();
         }
-        (_, _) => {
-
-        }
+        (_, _) => {}
     }
     Ok(())
 }
