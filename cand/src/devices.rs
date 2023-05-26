@@ -30,8 +30,6 @@ pub struct Channel {
     pub id: String,
     pub display_name: String,
     pub room: String,
-    #[serde(rename = "type")]
-    pub ty: ChannelType,
     pub kind: ChannelKind,
     pub driver: String,
     pub driver_options: HashMap<String, ciborium::value::Value>,

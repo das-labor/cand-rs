@@ -111,6 +111,7 @@ name = "cand"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "byteorder",
  "ciborium",
  "env_logger 0.10.0",
  "futures",
@@ -118,6 +119,7 @@ dependencies = [
  "log",
  "serde",
  "serde_yaml",
+ "slotmap",
  "tokio 1.28.0",
 ]
 

@@ -1,5 +1,5 @@
 mod error;
-mod helper;
+pub mod helper;
 mod net;
 
 use std::io::Cursor;

@@ -1,9 +1,15 @@
+mod can;
+mod config;
 mod devices;
+mod driver;
 mod net;
 
 use std::{fs::File, sync::Arc};
 
 use lcp_proto::{ChannelDescriptor, ChannelFlags, DeviceDescriptor, RoomDescriptor};
+use tokio::sync::mpsc;
+
+use crate::devices::Room;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -12,39 +18,65 @@ async fn main() -> anyhow::Result<()> {
         .parse_default_env()
         .init();
 
-    let devices: devices::Toplevel = serde_yaml::from_reader(&mut File::open("devices.yaml")?)?;
+    let device_config: devices::Toplevel =
+        serde_yaml::from_reader(&mut File::open("devices.yaml")?)?;
 
-    println!("Devices: {:?}", devices);
+    log::info!(
+        "Configured {} devices with {} channels",
+        device_config.devices.len(),
+        device_config
+            .devices
+            .iter()
+            .map(|device| device.channels.len())
+            .sum::<usize>()
+    );
+
+    let driver_manager = driver::init()?;
+
+    log::info!("Loaded {} drivers", driver_manager.len());
+
+    let devices = device_config
+        .devices
+        .into_iter()
+        .map(|device| DeviceDescriptor {
+            id: device.id.into_bytes(),
+            display_name: device.display_name,
+            wiki_url: device.wiki_url,
+            channels: device
+                .channels
+                .into_iter()
+                .filter_map(|channel| {
+                    let (tx, commands) = mpsc::channel(16);
+                    let channel_id = channel.id.clone();
+                    let channel_room = channel.id.clone();
+                    match driver_manager.init_driver(channel, commands) {
+                        Ok(channel_descriptor) => Some(channel_descriptor),
+                        Err(e) => {
+                            log::error!(
+                                "Failed to initialize channel driver for {}/{}/{}: {}",
+                                channel_room,
+                                device.id,
+                                channel_id,
+                                e
+                            );
+                            None
+                        }
+                    }
+                })
+                .collect(),
+        })
+        .collect();
 
     let core = Arc::new(net::server::Core {
-        rooms: devices
+        rooms: device_config
             .rooms
             .into_iter()
             .map(|room| RoomDescriptor {
-                id: room.id.as_bytes().to_owned(),
+                id: room.id.into_bytes(),
                 display_name: room.display_name,
             })
             .collect(),
-        devices: devices
-            .devices
-            .into_iter()
-            .map(|device| DeviceDescriptor {
-                id: device.id.as_bytes().to_owned(),
-                display_name: device.display_name,
-                wiki_url: device.wiki_url,
-                channels: device
-                    .channels
-                    .into_iter()
-                    .map(|channel| ChannelDescriptor {
-                        flags: ChannelFlags(0x00),
-                        room: channel.room.into_bytes(),
-                        display_name: channel.display_name,
-                        value_type: channel.ty,
-                        channel_kind: channel.kind,
-                    })
-                    .collect(),
-            })
-            .collect(),
+        devices,
     });
 
     net::server::listen("[::]:2342".parse()?, core).await?;

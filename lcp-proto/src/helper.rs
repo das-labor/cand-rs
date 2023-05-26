@@ -54,7 +54,10 @@ where
     }
 
     fn write_window<'a>(&'a mut self) -> WriteWindow<'a, Self> {
-        WriteWindow { inner: self, buffer: Some(Cursor::new(Vec::new())) }
+        WriteWindow {
+            inner: self,
+            buffer: Some(Cursor::new(Vec::new())),
+        }
     }
 }
 
@@ -91,7 +94,10 @@ where
     }
 
     fn read_window_with_length(&mut self, len: usize) -> ReadWindow<Self> {
-        ReadWindow { inner: self, remaining_bytes: len }
+        ReadWindow {
+            inner: self,
+            remaining_bytes: len,
+        }
     }
 
     fn read_bytes(&mut self) -> crate::Result<Vec<u8>> {

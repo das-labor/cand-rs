@@ -205,7 +205,10 @@ async fn state_task(
                 };
 
                 if remove {
-                    log::debug!("Automatically removed subscription for request ID {}", message.request_id);
+                    log::debug!(
+                        "Automatically removed subscription for request ID {}",
+                        message.request_id
+                    );
                     subscriptions.remove(&message.request_id);
                 }
             }

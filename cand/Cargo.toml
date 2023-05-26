@@ -5,6 +5,12 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+backend-network = []
+backend-network-legacy = []
+backend-interface = []
+default = ["backend-network-legacy"]
+
 [dependencies]
 anyhow = { version = "1.0.70", features = ["backtrace"] }
 lcp-proto = { path = "../lcp-proto", features = ["async"] }
@@ -15,3 +21,5 @@ log = "0.4.17"
 serde = { version = "1.0.160", features = ["derive"] }
 serde_yaml = "0.9.21"
 tokio = { version = "1.28.0", features = ["net", "io-util", "rt-multi-thread", "signal", "sync", "time", "macros"] }
+slotmap = "1.0.6"
+byteorder = "1.4.3"
