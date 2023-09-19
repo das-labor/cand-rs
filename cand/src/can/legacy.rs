@@ -4,6 +4,8 @@ use std::io::{Cursor, Read, Write};
 use std::{fmt, io};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+use anyhow::Result;
+
 use super::CANMessage;
 
 #[derive(Clone)]

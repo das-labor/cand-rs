@@ -7,6 +7,7 @@ use tokio::{
 use super::{CANCommand, CANMessage};
 use tokio::time::Duration;
 
+/// Spawns a new core and returns a handle to communicate with it
 pub async fn spawn(
     backend_config: crate::config::CANBackend,
 ) -> anyhow::Result<mpsc::Sender<CANCommand>> {
@@ -24,6 +25,10 @@ pub async fn spawn(
     Ok(tx)
 }
 
+/// Runs a CAN core. The task of the core is to multiplex any communication between components
+/// The backend_tx parameter is internally and must be the sending end of rx
+/// The rx parameter is used for receiving any control messages
+/// backend_config explains how to spawn a backend
 async fn run(
     backend_tx: mpsc::Sender<CANCommand>,
     mut rx: mpsc::Receiver<CANCommand>,

@@ -2,10 +2,12 @@ pub mod core;
 #[cfg(feature = "backend-network-legacy")]
 pub mod legacy;
 
+use std::io;
+
 use tokio::sync::mpsc;
 
 #[derive(Clone, Copy, Debug)]
-struct CANSubscription {
+pub struct CANSubscription {
     id: u16,
     id_mask: u16,
     payload: [u8; 8],
@@ -34,7 +36,7 @@ impl CANSubscription {
     }
 }
 
-struct CANSubscriptionBuilder {
+pub struct CANSubscriptionBuilder {
     id: u16,
     id_mask: u16,
     payload: [u8; 8],
@@ -102,17 +104,27 @@ pub struct CANMessage {
     len: usize,
 }
 
+impl CANMessage {
+    pub fn read<R: io::Read>(_read: &mut R) -> io::Result<Self> {
+        unimplemented!()
+    }
+
+    pub fn write<W: io::Write>(&self, _write: &mut W) -> io::Result<()> {
+        unimplemented!()
+    }
+}
+
 pub enum CANCommand {
+    /// Subscribe to Certain CAN events. THe subscription field specifies which events to react to
+    /// The respective messages will be sent via the receiver
     Subscribe {
         subscription: CANSubscription,
         sender: mpsc::Sender<CANMessage>,
     },
-    SendMessage {
-        message: CANMessage,
-    },
-    ReceiveMessage {
-        message: CANMessage,
-    },
+    /// Sends a message to the CAN Bus, this can be either a reply or any other kind of message
+    SendMessage { message: CANMessage },
+    /// Tells the core about a new CAN message that has been received. Only used internally
+    ReceiveMessage { message: CANMessage },
 }
 
 fn and_buf(a: &[u8; 8], b: &[u8; 8]) -> [u8; 8] {

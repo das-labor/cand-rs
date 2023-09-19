@@ -6,9 +6,35 @@ use tokio::{
     sync::mpsc,
 };
 
+use crate::driver::{Driver, DriverMessage};
+
 pub struct Core {
     pub rooms: Vec<RoomDescriptor>,
     pub devices: Vec<DeviceDescriptor>,
+    pub drivers: Vec<LoadedDriver>,
+}
+
+impl Core {
+    pub fn find_device(&self, name: &[u8]) -> Option<&DeviceDescriptor> {
+        self.devices.iter().find(|dev| &dev.id == name)
+    }
+
+    pub fn find_driver(
+        &self,
+        device: &[u8],
+        channel: &[u8],
+    ) -> Option<mpsc::Sender<DriverMessage>> {
+        self.drivers
+            .iter()
+            .find(|ld| ld.device == device && ld.channel == channel)
+            .map(|ld| ld.driver.clone())
+    }
+}
+
+pub struct LoadedDriver {
+    device: Vec<u8>,
+    channel: Vec<u8>,
+    driver: mpsc::Sender<DriverMessage>,
 }
 
 pub async fn listen(addr: SocketAddr, core: Arc<Core>) -> anyhow::Result<()> {
@@ -74,10 +100,14 @@ async fn read_task<R: AsyncRead + Unpin>(
             }
             ToServerPayload::SetChannel {
                 device,
-                room,
+                room: _room,
                 channel,
                 value,
-            } => todo!(),
+            } => {
+                if let Some(device) = core.find_driver(&device, &channel) {
+                    device.send(DriverMessage::SetValue(value))
+                }
+            }
             ToServerPayload::GetChannel {
                 device,
                 room,

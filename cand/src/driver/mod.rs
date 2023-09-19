@@ -7,7 +7,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::devices::Channel;
 
-pub trait Driver {
+pub trait Driver: Send + Sync {
     fn create_instance(
         &self,
         ch: Channel,
@@ -58,4 +58,8 @@ impl DriverManager {
     pub fn len(&self) -> usize {
         self.drivers.len()
     }
+}
+
+pub struct DriverBundle {
+    pub channels: HashMap<(Vec<u8>, Vec<u8>), Box<dyn Driver>>,
 }

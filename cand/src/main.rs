@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
         .devices
         .into_iter()
         .map(|device| DeviceDescriptor {
-            id: device.id.into_bytes(),
+            id: device.id.clone().into_bytes(),
             display_name: device.display_name,
             wiki_url: device.wiki_url,
             channels: device
