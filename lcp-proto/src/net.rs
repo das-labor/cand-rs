@@ -23,6 +23,7 @@ impl Serialize for ciborium::value::Value {
         let mut window = write.write_window();
 
         ciborium::ser::into_writer(&self, &mut window)?;
+        window.finish()?;
         Ok(())
     }
 }

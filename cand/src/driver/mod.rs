@@ -15,6 +15,7 @@ pub trait Driver: Send + Sync {
     ) -> anyhow::Result<ChannelDescriptor>;
 }
 
+#[derive(Debug)]
 pub enum DriverMessage {
     Subscribe(mpsc::Sender<ciborium::value::Value>),
     GetValue(oneshot::Sender<ciborium::value::Value>),
@@ -26,7 +27,7 @@ pub fn init() -> anyhow::Result<DriverManager> {
         drivers: HashMap::new(),
     };
 
-    manager.register_driver("lamp".to_owned(), lamp::Lamp);
+    manager.register_driver("lap:dimmable_lamp".to_owned(), lamp::Lamp);
 
     Ok(manager)
 }

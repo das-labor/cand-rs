@@ -15,7 +15,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 pub type ID = Vec<u8>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Message<T> {
     pub request_id: u64,
     pub payload: T,

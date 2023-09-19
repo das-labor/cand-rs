@@ -1,9 +1,7 @@
 [workspace]
 
 members = [
-    "lab-can-tcp-proto",
     "cand",
-    "cand-old",
     "lcp-proto",
     "lcp-client",
     "lcp",

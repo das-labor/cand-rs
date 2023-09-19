@@ -3,6 +3,7 @@ pub mod error;
 
 use std::collections::HashMap;
 
+pub use ciborium::Value;
 use comm::{ToBackend, ToFrontend};
 pub use error::*;
 
@@ -61,7 +62,7 @@ impl Connection {
             match rx.recv().await {
                 Some(ToFrontend::RequestSent { .. }) => {}
                 Some(ToFrontend::Response(payload)) => {
-                    return match payload {
+                    break match payload {
                         ToClientPayload::Devices { rooms, devices } => Ok((rooms, devices)),
                         ToClientPayload::Err { code, message } => {
                             Err(Error::ServerError { code, message })
@@ -70,6 +71,41 @@ impl Connection {
                     }
                 }
                 None => panic!("Backend task crashed"),
+            }
+        }
+    }
+
+    pub async fn set_channel(
+        &self,
+        device: &[u8],
+        room: &[u8],
+        channel: &[u8],
+        value: Value,
+    ) -> crate::Result<()> {
+        let mut rx = self
+            .request(
+                ToServerPayload::SetChannel {
+                    device: device.to_owned(),
+                    room: room.to_owned(),
+                    channel: channel.to_owned(),
+                    value,
+                },
+                false,
+            )
+            .await;
+
+        loop {
+            match rx.recv().await.expect("Backend task crashed") {
+                ToFrontend::RequestSent { .. } => {}
+                ToFrontend::Response(payload) => {
+                    break match payload {
+                        ToClientPayload::Ok => Ok(()),
+                        ToClientPayload::Err { code, message } => {
+                            Err(Error::ServerError { code, message })
+                        }
+                        _ => Err(crate::Error::UnexpectedResponseType),
+                    }
+                }
             }
         }
     }

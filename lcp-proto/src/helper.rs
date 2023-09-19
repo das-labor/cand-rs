@@ -57,6 +57,7 @@ where
         WriteWindow {
             inner: self,
             buffer: Some(Cursor::new(Vec::new())),
+            finished: false,
         }
     }
 }
@@ -152,6 +153,7 @@ impl<'a, T: Read> Drop for ReadWindow<'a, T> {
 pub struct WriteWindow<'a, T: Write> {
     inner: &'a mut T,
     buffer: Option<Cursor<Vec<u8>>>,
+    finished: bool,
 }
 
 impl<'a, T: Write> WriteWindow<'a, T> {
@@ -160,6 +162,7 @@ impl<'a, T: Write> WriteWindow<'a, T> {
 
         self.inner.write_varlen(buf.len())?;
         self.inner.write_all(&buf)?;
+        self.finished = true;
         Ok(())
     }
 }
@@ -175,5 +178,13 @@ impl<'a, T: Write> Write for WriteWindow<'a, T> {
 
     fn flush(&mut self) -> std::io::Result<()> {
         Ok(())
+    }
+}
+
+impl<'a, T: Write> Drop for WriteWindow<'a, T> {
+    fn drop(&mut self) {
+        if !self.finished {
+            panic!("Did not call finish() on WriteWindow before drop");
+        }
     }
 }

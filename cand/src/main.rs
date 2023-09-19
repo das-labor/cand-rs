@@ -9,7 +9,7 @@ use std::{fs::File, sync::Arc};
 use lcp_proto::{ChannelDescriptor, ChannelFlags, DeviceDescriptor, RoomDescriptor};
 use tokio::sync::mpsc;
 
-use crate::devices::Room;
+use crate::{devices::Room, net::server::LoadedDriver};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -35,6 +35,8 @@ async fn main() -> anyhow::Result<()> {
 
     log::info!("Loaded {} drivers", driver_manager.len());
 
+    let mut drivers = vec![];
+
     let devices = device_config
         .devices
         .into_iter()
@@ -50,7 +52,14 @@ async fn main() -> anyhow::Result<()> {
                     let channel_id = channel.id.clone();
                     let channel_room = channel.id.clone();
                     match driver_manager.init_driver(channel, commands) {
-                        Ok(channel_descriptor) => Some(channel_descriptor),
+                        Ok(channel_descriptor) => {
+                            drivers.push(LoadedDriver {
+                                channel: Vec::from(channel_id.as_bytes()),
+                                device: Vec::from(device.id.as_bytes()),
+                                driver: tx,
+                            });
+                            Some(channel_descriptor)
+                        }
                         Err(e) => {
                             log::error!(
                                 "Failed to initialize channel driver for {}/{}/{}: {}",
@@ -76,6 +85,7 @@ async fn main() -> anyhow::Result<()> {
                 display_name: room.display_name,
             })
             .collect(),
+        drivers,
         devices,
     });
 

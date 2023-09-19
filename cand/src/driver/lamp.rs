@@ -34,6 +34,7 @@ pub async fn background_task_inner(
     mut commands: mpsc::Receiver<super::DriverMessage>,
 ) -> anyhow::Result<()> {
     while let Some(message) = commands.recv().await {
+        log::debug!("Driver Message: {:?}", message);
         match message {
             super::DriverMessage::Subscribe(reply) => todo!(),
             super::DriverMessage::GetValue(_) => todo!(),

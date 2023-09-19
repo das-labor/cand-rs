@@ -1,9 +1,9 @@
 use lcp_proto::{DeviceDescriptor, Message, RoomDescriptor, ToClientPayload, ToServerPayload};
-use std::{net::SocketAddr, sync::Arc};
+use std::{fmt, net::SocketAddr, sync::Arc};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
     net::{TcpListener, TcpStream},
-    sync::mpsc,
+    sync::{mpsc, oneshot},
 };
 
 use crate::driver::{Driver, DriverMessage};
@@ -32,9 +32,9 @@ impl Core {
 }
 
 pub struct LoadedDriver {
-    device: Vec<u8>,
-    channel: Vec<u8>,
-    driver: mpsc::Sender<DriverMessage>,
+    pub device: Vec<u8>,
+    pub channel: Vec<u8>,
+    pub driver: mpsc::Sender<DriverMessage>,
 }
 
 pub async fn listen(addr: SocketAddr, core: Arc<Core>) -> anyhow::Result<()> {
@@ -86,7 +86,7 @@ async fn read_task<R: AsyncRead + Unpin>(
         let message: Message<ToServerPayload> = Message::deserialize_async(read).await?;
         log::trace!("Received message: {message:#?}");
 
-        match message.payload {
+        match &message.payload {
             ToServerPayload::Hello => {
                 tx.send(message.new_response(ToClientPayload::Welcome))
                     .await?;
@@ -105,7 +105,17 @@ async fn read_task<R: AsyncRead + Unpin>(
                 value,
             } => {
                 if let Some(device) = core.find_driver(&device, &channel) {
-                    device.send(DriverMessage::SetValue(value))
+                    let (sender, receiver) = oneshot::channel();
+                    device
+                        .send(DriverMessage::SetValue(value.clone(), sender))
+                        .await
+                        .unwrap();
+
+                    send_delayed_response(
+                        receiver,
+                        tx.clone(),
+                        message.new_response(ToClientPayload::Ok),
+                    )
                 }
             }
             ToServerPayload::GetChannel {
@@ -120,4 +130,17 @@ async fn read_task<R: AsyncRead + Unpin>(
             } => todo!(),
         }
     }
+}
+
+/// Send a response as soon as the passed future resolved
+fn send_delayed_response<T: Send + Sync + fmt::Debug + 'static>(
+    future: oneshot::Receiver<()>,
+    sender: mpsc::Sender<T>,
+    payload: T,
+) {
+    tokio::spawn(async move {
+        // We can ignore errors here, they likely mean that the client has disconnected
+        let _ = future.await;
+        sender.send(payload).await.unwrap();
+    });
 }
