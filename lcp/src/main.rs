@@ -12,6 +12,11 @@ fn args() -> clap::Command {
                 .default_value("cand:2342"),
         )
         .subcommand(
+            clap::Command::new("list")
+                .arg(clap::Arg::new("device").action(ArgAction::Set))
+                .arg(clap::Arg::new("room").action(ArgAction::Set)),
+        )
+        .subcommand(
             clap::Command::new("set")
                 .arg(
                     clap::Arg::new("device")
@@ -26,6 +31,20 @@ fn args() -> clap::Command {
                 )
                 .arg(
                     clap::Arg::new("value")
+                        .required(true)
+                        .action(ArgAction::Set),
+                ),
+        )
+        .subcommand(
+            clap::Command::new("get")
+                .arg(
+                    clap::Arg::new("device")
+                        .required(true)
+                        .action(ArgAction::Set),
+                )
+                .arg(clap::Arg::new("room").required(true).action(ArgAction::Set))
+                .arg(
+                    clap::Arg::new("channel")
                         .required(true)
                         .action(ArgAction::Set),
                 ),
@@ -63,6 +82,61 @@ async fn main() -> anyhow::Result<()> {
                 lcp_client::Value::Text(submatches.get_one::<String>("value").unwrap().to_owned()),
             )
             .await?;
+        }
+        ("list", submatches) => {
+            let device_filter = submatches.get_one::<String>("device");
+            let room_filter = submatches.get_one::<String>("room");
+
+            let (_rooms, devices) = con.list_devices().await?;
+
+            let filtered_devices = devices
+                .into_iter()
+                .map(|device| {
+                    let device_id = device.id.clone();
+                    let channels = device
+                        .channels
+                        .into_iter()
+                        .filter(move |channel| {
+                            let dev_ok = if let Some(device_filter) = &device_filter {
+                                device_filter.as_bytes() == &device_id
+                            } else {
+                                true
+                            };
+
+                            let room_ok = if let Some(room_filter) = &room_filter {
+                                room_filter.as_bytes() == &channel.room
+                            } else {
+                                true
+                            };
+
+                            dev_ok && room_ok
+                        })
+                        .collect();
+                    lcp_client::proto::DeviceDescriptor { channels, ..device }
+                })
+                .filter(|device| !device.channels.is_empty())
+                .collect::<Vec<_>>();
+
+            for device in filtered_devices {
+                println!(
+                    "{} (ID {})",
+                    device.display_name,
+                    String::from_utf8_lossy(&device.id)
+                );
+                println!("    Wiki URL: {}", device.wiki_url);
+                println!();
+
+                for channel in device.channels {
+                    println!(
+                        "    {}:{}:{} {} [{}]",
+                        String::from_utf8_lossy(&device.id),
+                        String::from_utf8_lossy(&channel.room),
+                        String::from_utf8_lossy(&channel.id),
+                        channel.display_name,
+                        channel.flags,
+                    )
+                }
+            }
         }
         _ => unreachable!(),
     }

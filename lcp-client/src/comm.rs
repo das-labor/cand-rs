@@ -8,6 +8,7 @@ pub enum ToBackend {
         payload: ToServerPayload,
         multi_response: bool,
     },
+    #[allow(dead_code)]
     Unregister {
         req_id: u64,
     },

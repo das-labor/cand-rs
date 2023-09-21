@@ -14,6 +14,8 @@ use tokio::{
     sync::mpsc,
 };
 
+pub use lcp_proto as proto;
+
 pub struct Connection {
     tx: mpsc::Sender<comm::ToBackend>,
 }
@@ -100,6 +102,90 @@ impl Connection {
                 ToFrontend::Response(payload) => {
                     break match payload {
                         ToClientPayload::Ok => Ok(()),
+                        ToClientPayload::Err { code, message } => {
+                            Err(Error::ServerError { code, message })
+                        }
+                        _ => Err(crate::Error::UnexpectedResponseType),
+                    }
+                }
+            }
+        }
+    }
+
+    pub async fn get_channel(
+        &self,
+        device: &[u8],
+        room: &[u8],
+        channel: &[u8],
+    ) -> crate::Result<Value> {
+        let mut rx = self
+            .request(
+                ToServerPayload::GetChannel {
+                    device: device.to_owned(),
+                    room: room.to_owned(),
+                    channel: channel.to_owned(),
+                },
+                false,
+            )
+            .await;
+
+        loop {
+            match rx.recv().await.expect("Backend task crashed") {
+                ToFrontend::RequestSent { .. } => {}
+                ToFrontend::Response(payload) => {
+                    break match payload {
+                        ToClientPayload::ChannelValue { value, .. } => Ok(value),
+                        ToClientPayload::Err { code, message } => {
+                            Err(Error::ServerError { code, message })
+                        }
+                        _ => Err(crate::Error::UnexpectedResponseType),
+                    }
+                }
+            }
+        }
+    }
+
+    pub async fn subscribe_channel(
+        &self,
+        device: &[u8],
+        room: &[u8],
+        channel: &[u8],
+    ) -> crate::Result<mpsc::Receiver<Value>> {
+        let mut rx = self
+            .request(
+                ToServerPayload::GetChannel {
+                    device: device.to_owned(),
+                    room: room.to_owned(),
+                    channel: channel.to_owned(),
+                },
+                true,
+            )
+            .await;
+
+        loop {
+            match rx.recv().await.expect("Backend task crashed") {
+                ToFrontend::RequestSent { .. } => {}
+                ToFrontend::Response(payload) => {
+                    break match payload {
+                        ToClientPayload::Ok => {
+                            let (value_tx, value_rx) = mpsc::channel(16);
+
+                            tokio::spawn(async move {
+                                while let Some(value) = rx.recv().await {
+                                    match value {
+                                        ToFrontend::RequestSent { .. } => unreachable!(),
+                                        ToFrontend::Response(ToClientPayload::ChannelValue {
+                                            value,
+                                            ..
+                                        }) => {
+                                            value_tx.send(value).await.unwrap();
+                                        }
+                                        _ => panic!("Foo"),
+                                    }
+                                }
+                            });
+                            break Ok(value_rx);
+                        }
                         ToClientPayload::Err { code, message } => {
                             Err(Error::ServerError { code, message })
                         }

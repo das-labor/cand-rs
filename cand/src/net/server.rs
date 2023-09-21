@@ -22,17 +22,19 @@ impl Core {
     pub fn find_driver(
         &self,
         device: &[u8],
+        room: &[u8],
         channel: &[u8],
     ) -> Option<mpsc::Sender<DriverMessage>> {
         self.drivers
             .iter()
-            .find(|ld| ld.device == device && ld.channel == channel)
+            .find(|ld| ld.device == device && ld.room == room && ld.channel == channel)
             .map(|ld| ld.driver.clone())
     }
 }
 
 pub struct LoadedDriver {
     pub device: Vec<u8>,
+    pub room: Vec<u8>,
     pub channel: Vec<u8>,
     pub driver: mpsc::Sender<DriverMessage>,
 }
@@ -100,11 +102,11 @@ async fn read_task<R: AsyncRead + Unpin>(
             }
             ToServerPayload::SetChannel {
                 device,
-                room: _room,
+                room,
                 channel,
                 value,
             } => {
-                if let Some(device) = core.find_driver(&device, &channel) {
+                if let Some(device) = core.find_driver(&device, &room, &channel) {
                     let (sender, receiver) = oneshot::channel();
                     device
                         .send(DriverMessage::SetValue(value.clone(), sender))
@@ -116,18 +118,73 @@ async fn read_task<R: AsyncRead + Unpin>(
                         tx.clone(),
                         message.new_response(ToClientPayload::Ok),
                     )
+                } else {
+                    tx.send(message.new_response(ToClientPayload::Err {
+                        code: lcp_proto::ErrorCode::NoSuchChannel,
+                        message: "Could not find Device, Room or Channel".to_owned(),
+                    }))
+                    .await
+                    .unwrap()
                 }
             }
             ToServerPayload::GetChannel {
                 device,
                 room,
                 channel,
-            } => todo!(),
+            } => {
+                if let Some(device) = core.find_driver(&device, &room, &channel) {
+                    let (sender, receiver) = oneshot::channel();
+                    device.send(DriverMessage::GetValue(sender)).await.unwrap();
+                    let message = message.clone();
+
+                    let tx = tx.clone();
+
+                    tokio::spawn(async move {
+                        let value = receiver.await.unwrap();
+
+                        let response =
+                            message.new_response(ToClientPayload::ChannelValue { flags: 0, value });
+
+                        tx.send(response).await.unwrap();
+                    });
+                } else {
+                    tx.send(message.new_response(ToClientPayload::Err {
+                        code: lcp_proto::ErrorCode::NoSuchChannel,
+                        message: "Could not find Device, Room or Channel".to_owned(),
+                    }))
+                    .await
+                    .unwrap()
+                }
+            }
             ToServerPayload::SubscribeChannel {
                 device,
                 room,
                 channel,
-            } => todo!(),
+            } => {
+                if let Some(device) = core.find_driver(&device, &room, &channel) {
+                    let (sender, mut receiver) = mpsc::channel(16);
+                    device.send(DriverMessage::Subscribe(sender)).await.unwrap();
+                    let message = message.clone();
+
+                    let tx = tx.clone();
+
+                    tokio::spawn(async move {
+                        while let Some(value) = receiver.recv().await {
+                            let response = message
+                                .new_response(ToClientPayload::ChannelValue { flags: 0, value });
+
+                            tx.send(response).await.unwrap();
+                        }
+                    });
+                } else {
+                    tx.send(message.new_response(ToClientPayload::Err {
+                        code: lcp_proto::ErrorCode::NoSuchChannel,
+                        message: "Could not find Device, Room or Channel".to_owned(),
+                    }))
+                    .await
+                    .unwrap()
+                }
+            }
         }
     }
 }

@@ -55,6 +55,7 @@ async fn main() -> anyhow::Result<()> {
                         Ok(channel_descriptor) => {
                             drivers.push(LoadedDriver {
                                 channel: Vec::from(channel_id.as_bytes()),
+                                room: Vec::from(channel_room.as_bytes()),
                                 device: Vec::from(device.id.as_bytes()),
                                 driver: tx,
                             });

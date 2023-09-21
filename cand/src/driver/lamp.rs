@@ -13,7 +13,8 @@ impl Driver for Lamp {
     ) -> anyhow::Result<lcp_proto::ChannelDescriptor> {
         tokio::task::spawn(background_task(commands));
         Ok(ChannelDescriptor {
-            flags: ChannelFlags(0x7),
+            id: ch.id.into_bytes(),
+            flags: ChannelFlags::build().read().write().subscribe().build(),
             room: ch.room.into_bytes(),
             display_name: ch.display_name,
             value_type: lcp_proto::ValueType::U8,

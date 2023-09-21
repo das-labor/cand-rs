@@ -2,7 +2,7 @@ mod error;
 pub mod helper;
 mod net;
 
-use std::io::Cursor;
+use std::{fmt, io::Cursor};
 
 use crate::helper::{ReadExt, WriteExt};
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
@@ -106,7 +106,7 @@ impl Message<ToServerPayload> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ToServerPayload {
     Hello,
     GetDevices,
@@ -519,7 +519,30 @@ impl Deserialize for ChannelKind {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ChannelFlags(pub u8);
+pub struct ChannelFlags(u8);
+
+impl ChannelFlags {
+    pub fn build() -> ChannelFlagsBuilder {
+        ChannelFlagsBuilder(0)
+    }
+
+    pub fn is_subscribe(&self) -> bool {
+        self.0 & 0x01 != 0
+    }
+
+    pub fn is_write(&self) -> bool {
+        self.0 & 0x02 != 0
+    }
+
+    pub fn is_read(&self) -> bool {
+        self.0 & 0x04 != 0
+    }
+
+    pub fn is_linger(&self) -> bool {
+        self.0 & 0x08 != 0
+    }
+}
+
 impl Serialize for ChannelFlags {
     fn serialize<W: std::io::Write>(&self, write: &mut W) -> crate::Result<()> {
         write.write_u8(self.0)?;
@@ -533,8 +556,64 @@ impl Deserialize for ChannelFlags {
     }
 }
 
+impl fmt::Display for ChannelFlags {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.is_linger() {
+            write!(f, "L")?;
+        } else {
+            write!(f, "-")?;
+        }
+
+        if self.is_read() {
+            write!(f, "R")?;
+        } else {
+            write!(f, "-")?;
+        }
+
+        if self.is_write() {
+            write!(f, "W")?;
+        } else {
+            write!(f, "-")?;
+        }
+
+        if self.is_subscribe() {
+            write!(f, "S")?;
+        } else {
+            write!(f, "-")?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ChannelFlagsBuilder(u8);
+
+impl ChannelFlagsBuilder {
+    pub fn subscribe(self) -> Self {
+        ChannelFlagsBuilder(self.0 | 0x01)
+    }
+
+    pub fn write(self) -> Self {
+        ChannelFlagsBuilder(self.0 | 0x02)
+    }
+
+    pub fn read(self) -> Self {
+        ChannelFlagsBuilder(self.0 | 0x04)
+    }
+
+    pub fn linger(self) -> Self {
+        ChannelFlagsBuilder(self.0 | 0x08)
+    }
+
+    pub fn build(self) -> ChannelFlags {
+        ChannelFlags(self.0)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ChannelDescriptor {
+    pub id: ID,
     pub flags: ChannelFlags,
     pub room: ID,
     pub display_name: String,
@@ -545,6 +624,7 @@ pub struct ChannelDescriptor {
 impl Serialize for ChannelDescriptor {
     fn serialize<W: std::io::Write>(&self, write: &mut W) -> crate::Result<()> {
         let mut window = write.write_window();
+        window.write_id(&self.id)?;
         self.flags.serialize(&mut window)?;
         window.write_id(&self.room)?;
         window.write_string(&self.display_name)?;
@@ -558,6 +638,7 @@ impl Serialize for ChannelDescriptor {
 impl Deserialize for ChannelDescriptor {
     fn deserialize<R: std::io::Read>(read: &mut R) -> crate::Result<Self> {
         let mut window = read.read_window()?;
+        let id = window.read_id()?;
         let flags = ChannelFlags::deserialize(&mut window)?;
         let room = window.read_id()?;
         let display_name = window.read_string()?;
@@ -565,6 +646,7 @@ impl Deserialize for ChannelDescriptor {
         let channel_kind = ChannelKind::deserialize(&mut window)?;
         window.skip_to_end()?;
         Ok(ChannelDescriptor {
+            id,
             flags,
             room,
             display_name,
